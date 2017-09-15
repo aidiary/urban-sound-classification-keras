@@ -38,13 +38,13 @@ def parse_audio_files(parent_dir, sub_dirs, file_ext='*.wav'):
 
 
 def main():
-    parent_dir = './data/sample'
-    train_sub_dirs = ['train']
-    test_sub_dirs = ['test']
+    # parent_dir = './data/sample'
+    # train_sub_dirs = ['train']
+    # test_sub_dirs = ['test']
 
-    # parent_dir = './data/UrbanSound8k/audio/'
-    # train_sub_dirs = ['fold1', 'fold2']
-    # test_sub_dirs = ['fold3']
+    parent_dir = './data/UrbanSound8K/audio/'
+    train_sub_dirs = ['fold1', 'fold2']
+    test_sub_dirs = ['fold3']
 
     # extract features from audio files
     train_features, train_labels, train_filenames = parse_audio_files(parent_dir, train_sub_dirs)
