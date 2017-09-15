@@ -2,73 +2,70 @@ import glob
 import os
 import librosa
 import numpy as np
+from sklearn.preprocessing import OneHotEncoder
 
 
 def extract_feature(file_name):
-    X, sample_rate = librosa.load(file_name)
-    stft = np.abs(librosa.stft(X))
+    y, sr = librosa.load(file_name)
 
-    # MFCC 40 dim.
-    mfccs = np.mean(librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40), axis=1)
+    # melspectrogram (128 dim.)
+    melgram = np.mean(librosa.feature.melspectrogram(y=y, sr=sr), axis=1)
 
-    # chromagram 12 dim.
-    chroma = np.mean(librosa.feature.chroma_stft(S=stft, sr=sample_rate), axis=1)
-
-    # melspectrogram 128 dim.
-    mel = np.mean(librosa.feature.melspectrogram(y=X, sr=sample_rate), axis=1)
-
-    # spectral contrast 7 dim.
-    contrast = np.mean(librosa.feature.spectral_contrast(S=stft, sr=sample_rate), axis=1)
-
-    # tonal centroid features 6 dim.
-    tonnetz = np.mean(librosa.feature.tonnetz(y=librosa.effects.harmonic(X), sr=sample_rate), axis=1)
-
-    return mfccs, chroma, mel, contrast, tonnetz
+    return melgram
 
 
 def parse_audio_files(parent_dir, sub_dirs, file_ext='*.wav'):
-    features, labels = np.empty((0, 193)), np.empty(0)
+    features = np.empty((0, 128))
+    labels = []
+    filenames = []
+
     for sub_dir in sub_dirs:
         for fn in glob.glob(os.path.join(parent_dir, sub_dir, file_ext)):
             print('***', sub_dir, fn)
             try:
-                mfccs, chroma, mel, contrast, tonnetz = extract_feature(fn)
+                melgram = extract_feature(fn)
             except Exception as e:
                 print('Error encountered while parsing file: ', fn)
                 continue
-            ext_features = np.hstack([mfccs, chroma, mel, contrast, tonnetz])
-            features = np.vstack([features, ext_features])
+
+            features = np.vstack((features, melgram))
+
             # data/UrbanSound8K/audio/fold1/101415-3-0-2.wav => 3
-            labels = np.append(labels, fn.split('/')[-1].split('-')[1])
-    return np.array(features), np.array(labels, dtype=np.int)
+            labels.append(os.path.basename(fn).split('-')[1])
+            filenames.append(fn)
 
-
-def one_hot_encodes(labels):
-    n_labels = len(labels)
-    n_unique_labels = len(np.unique(labels))
-    one_hot_encode = np.zeros((n_labels, n_unique_labels))
-    one_hot_encode[np.arange(n_labels), labels] = 1
-    return one_hot_encode
+    return features, np.array(labels, dtype=np.int), np.array(filenames)
 
 
 def main():
-    parent_dir = './data/UrbanSound8K/audio'
-    train_sub_dirs = ['fold1', 'fold2']
-    test_sub_dirs = ['fold3']
+    parent_dir = './data/sample'
+    train_sub_dirs = ['train']
+    test_sub_dirs = ['test']
 
-    train_features, train_labels = parse_audio_files(parent_dir, train_sub_dirs)
-    test_features, test_labels = parse_audio_files(parent_dir, test_sub_dirs)
+    # parent_dir = './data/UrbanSound8k/audio/c'
+    # train_sub_dirs = ['fold1', 'fold2']
+    # test_sub_dirs = ['fold3']
 
-    train_labels = one_hot_encodes(train_labels)
-    test_labels = one_hot_encodes(test_labels)
+    # extract features from audio files
+    train_features, train_labels, train_filenames = parse_audio_files(parent_dir, train_sub_dirs)
+    test_features, test_labels, test_filenames = parse_audio_files(parent_dir, test_sub_dirs)
 
-    print(train_features.shape, train_labels.shape)
-    print(test_features.shape, test_labels.shape)
+    # convert to one hot encode
+    train_labels = train_labels.reshape(len(train_labels), 1)
+    test_labels = test_labels.reshape(len(test_labels), 1)
 
+    enc = OneHotEncoder(sparse=False)
+    train_labels = enc.fit_transform(train_labels)
+    test_labels = enc.fit_transform(test_labels)
+
+    # save to file
     np.save('data/train_features.npy', train_features)
     np.save('data/train_labels.npy', train_labels)
+    np.save('data/train_filenames.npy', train_filenames)
+
     np.save('data/test_features.npy', test_features)
     np.save('data/test_labels.npy', test_labels)
+    np.save('data/test_filenames.npy', test_filenames)
 
 
 if __name__ == '__main__':
