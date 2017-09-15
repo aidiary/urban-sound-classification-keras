@@ -43,8 +43,8 @@ def main():
     # test_sub_dirs = ['test']
 
     parent_dir = './data/UrbanSound8K/audio/'
-    train_sub_dirs = ['fold1', 'fold2']
-    test_sub_dirs = ['fold3']
+    train_sub_dirs = ['fold%d' % i for i in range(1, 10)]
+    test_sub_dirs = ['fold10']
 
     # extract features from audio files
     train_features, train_labels, train_filenames = parse_audio_files(parent_dir, train_sub_dirs)
