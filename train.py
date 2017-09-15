@@ -13,13 +13,16 @@ np.random.seed(seed)
 if not os.path.exists('models'):
     os.mkdir('models')
 
-train_features = np.load('data/train_features.npy')
-train_labels = np.load('data/train_labels.npy')
-test_features = np.load('data/test_features.npy')
-test_labels = np.load('data/test_labels.npy')
+data_dir = 'data/mel-128-2048'
+
+train_features = np.load(os.path.join(data_dir, 'train_features.npy'))
+train_labels = np.load(os.path.join(data_dir, 'train_labels.npy'))
+test_features = np.load(os.path.join(data_dir, 'test_features.npy'))
+test_labels = np.load(os.path.join(data_dir, 'test_labels.npy'))
+
+n_dims = train_features.shape[1]
 
 # scale train/test data
-#scaler = MinMaxScaler(feature_range=(0, 1))
 scaler = StandardScaler()
 scaler = scaler.fit(train_features)
 train_features = scaler.transform(train_features)
@@ -27,7 +30,7 @@ test_features = scaler.transform(test_features)
 
 # create model
 model = Sequential()
-model.add(Dense(280, input_shape=(128, )))
+model.add(Dense(280, input_shape=(n_dims, )))
 model.add(Activation('relu'))
 model.add(Dense(300))
 model.add(Activation('relu'))
@@ -55,4 +58,12 @@ model.fit(train_features, train_labels,
           validation_split=0.1,
           callbacks=[logger, checkpoint])
 
+# TODO: move to evaluate.py
 # evaluate
+loss, acc = model.evaluate(test_features, test_labels, verbose=0)
+print('test loss:', loss)
+print('test acc :', acc)
+
+# TODO: confusion matrix
+# y_true =
+# y_pred =
