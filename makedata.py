@@ -42,7 +42,7 @@ def main():
     train_sub_dirs = ['train']
     test_sub_dirs = ['test']
 
-    # parent_dir = './data/UrbanSound8k/audio/c'
+    # parent_dir = './data/UrbanSound8k/audio/'
     # train_sub_dirs = ['fold1', 'fold2']
     # test_sub_dirs = ['fold3']
 
