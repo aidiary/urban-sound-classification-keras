@@ -1,69 +1,105 @@
 import os
+import librosa
 import numpy as np
-from keras.models import Sequential
-from keras.layers import Dense, Activation
-from keras.optimizers import Adam
-from keras.callbacks import CSVLogger, ModelCheckpoint
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
+import pandas as pd
+from keras.optimizers import SGD
+
+from makedata import DATA_ROOT
+from models import create_model
 
 
-seed = 0
-np.random.seed(seed)
+class Dataset:
+    def __init__(self, features, fold_testing, fold_validation, shape):
+        train = features[(features['fold'] != fold_testing) & (features['fold'] != fold_validation)]
+        validation = features[(features['fold'] == fold_validation)]
+        test = features[(features['fold'] == fold_testing)]
+        print('train:', train.shape)
+        print('validation:', validation.shape)
+        print('test:', test.shape)
 
-if not os.path.exists('models'):
-    os.mkdir('models')
+        self.shape = shape
+        self.start = 'logspec_b0_f0'
+        self.end = features.columns[-1]
+        class_count = len(pd.unique(features['category']))
 
-data_dir = 'data/mel-128-2048'
+        X = train.loc[:, self.start:self.end].as_matrix()
+        y = Dataset.to_one_hot(train['category'].as_matrix(), class_count)
 
-train_features = np.load(os.path.join(data_dir, 'train_features.npy'))
-train_labels = np.load(os.path.join(data_dir, 'train_labels.npy'))
-test_features = np.load(os.path.join(data_dir, 'test_features.npy'))
-test_labels = np.load(os.path.join(data_dir, 'test_labels.npy'))
+        X_validation = validation.loc[:, self.start:self.end].as_matrix()
+        y_validation = Dataset.to_one_hot(validation['category'].as_matrix(), class_count)
 
-n_dims = train_features.shape[1]
+        X_test = test.loc[:, self.start:self.end].as_matrix()
+        y_test = Dataset.to_one_hot(test['category'].as_matrix(), class_count)
 
-# scale train/test data
-scaler = StandardScaler()
-scaler = scaler.fit(train_features)
-train_features = scaler.transform(train_features)
-test_features = scaler.transform(test_features)
+        # メルスペクトログラムのdBは平均0、標準偏差1に正規化
+        X_mean = np.mean(X)
+        X_std = np.std(X)
 
-# create model
-model = Sequential()
-model.add(Dense(280, input_shape=(n_dims, )))
-model.add(Activation('relu'))
-model.add(Dense(300))
-model.add(Activation('relu'))
-model.add(Dense(10))
-model.add(Activation('softmax'))
+        # 訓練データの (mean, std) でバリデーションとテストデータも正規化
+        X = (X - X_mean) / X_std
+        X_validation = (X_validation - X_mean) / X_std
+        X_test = (X_test - X_mean) / X_std
 
-model.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
+        X = np.reshape(X, self.shape, order='F')
+        X_validation = np.reshape(X_validation, self.shape, order='F')
+        X_test = np.reshape(X_test, self.shape, order='F')
+#         print(X.shape)
+#         print(X_validation.shape)
+#         print(X_test.shape)
 
-# callbacks
-logger = CSVLogger('models/train.log')
-weight_file = 'models/train.{epoch:02d}-{val_loss:.3f}-{val_acc:.3f}.h5'
-checkpoint = ModelCheckpoint(weight_file,
-                             monitor='val_loss',
-                             verbose=1,
-                             save_best_only=True,
-                             mode='auto')
+        # generate delta
+        X = self.generate_deltas(X)
+        X_validation = self.generate_deltas(X_validation)
+        X_test = self.generate_deltas(X_test)
+#         print(X.shape)
+#         print(X_validation.shape)
+#         print(X_test.shape)
 
-# train
-model.fit(train_features, train_labels,
-          batch_size=32,
-          epochs=128,
-          verbose=1,
-          validation_split=0.1,
-          callbacks=[logger, checkpoint])
+        self.X, self.y = X, y
+        self.X_validation, self.y_validation = X_validation, y_validation
+        self.X_test, self.y_test = X_test, y_test
 
-# TODO: move to evaluate.py
-# evaluate
-loss, acc = model.evaluate(test_features, test_labels, verbose=0)
-print('test loss:', loss)
-print('test acc :', acc)
 
-# TODO: confusion matrix
-# y_true =
-# y_pred =
+    def generate_deltas(self, X):
+        new_dim = np.zeros(np.shape(X))
+        X = np.concatenate((X, new_dim), axis=3)  # 3 = channel
+        del new_dim
+
+        for i in range(len(X)):
+            X[i, :, :, 1] = librosa.feature.delta(X[i, :, :, 0])
+
+        return X
+
+    @classmethod
+    def to_one_hot(cls, labels, class_count):
+        one_hot_enc = np.zeros((len(labels), class_count))
+        for r in range(len(labels)):
+            one_hot_enc[r, labels[r]] = 1
+        return one_hot_enc
+
+
+def main():
+    # load data
+    urban_features = pd.read_pickle(os.path.join(DATA_ROOT, 'urban_features.pkl'))
+    dataset = Dataset(urban_features, fold_testing=1, fold_validation=10, shape=(-1, 60, 41, 1))
+    print(dataset.X.shape, dataset.y.shape)
+    print(dataset.X_validation.shape, dataset.y_validation.shape)
+    print(dataset.X_test.shape, dataset.y_test.shape)
+
+    model = create_model()
+    model.compile(loss='categorical_crossentropy',
+                  optimizer=SGD(lr=0.002, momentum=0.9, nesterov=True),
+                  metrics=['accuracy'])
+
+    epochs = 100
+    batch_size = 1000
+
+    model.fit(dataset.X, dataset.y,
+              batch_size=batch_size,
+              epochs=epochs,
+              verbose=1,
+              validation_data=(dataset.X_validation, dataset.y_validation))
+
+
+if __name__ == '__main__':
+    main()
