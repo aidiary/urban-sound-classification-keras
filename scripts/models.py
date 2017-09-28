@@ -7,7 +7,6 @@ def create_model():
     model.add(Conv2D(filters=80, kernel_size=(57, 6), strides=(1, 1), padding='valid', input_shape=(60, 41, 2)))
     model.add(Activation('relu'))
     model.add(MaxPooling2D(pool_size=(4, 3), strides=(1, 3)))
-    model.add(Dropout(0.5))
     model.add(Conv2D(filters=80, kernel_size=(1, 3), strides=(1, 1), padding='valid'))
     model.add(Activation('relu'))
     model.add(Dropout(0.5))
