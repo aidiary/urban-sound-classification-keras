@@ -3,9 +3,16 @@ import librosa
 import numpy as np
 import pandas as pd
 from keras.optimizers import SGD
+from keras.callbacks import CSVLogger, ModelCheckpoint
 
 from makedata import DATA_ROOT
 from models import create_model
+
+
+MODEL_DIR = '../models'
+
+if not os.path.exists(MODEL_DIR):
+    os.makedirs(MODEL_DIR)
 
 
 class Dataset:
@@ -91,14 +98,23 @@ def main():
                   optimizer=SGD(lr=0.002, momentum=0.9, nesterov=True),
                   metrics=['accuracy'])
 
+    logger = CSVLogger(os.path.join(MODEL_DIR, 'train.log'))
+    weight_file = os.path.join(MODEL_DIR, 'model.{epoch:02d}-{val_loss:.3f}-{val_acc:.3f}.h5')
+    checkpoint = ModelCheckpoint(
+        weight_file,
+        monitor='val_loss',
+        verbose=1,
+        save_best_only=True,
+        mode='auto')
+
     epochs = 100
     batch_size = 1000
-
     model.fit(dataset.X, dataset.y,
               batch_size=batch_size,
               epochs=epochs,
               verbose=1,
-              validation_data=(dataset.X_validation, dataset.y_validation))
+              validation_data=(dataset.X_validation, dataset.y_validation),
+              callbacks=[logger, checkpoint])
 
 
 if __name__ == '__main__':
