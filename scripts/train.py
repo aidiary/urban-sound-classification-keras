@@ -107,7 +107,7 @@ def main():
         save_best_only=True,
         mode='auto')
 
-    epochs = 100
+    epochs = 300
     batch_size = 1000
     model.fit(dataset.X, dataset.y,
               batch_size=batch_size,
