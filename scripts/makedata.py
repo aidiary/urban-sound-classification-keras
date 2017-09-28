@@ -63,7 +63,7 @@ def load_urbansound():
         print('Loaded batch {} ({} / {})'.format(b, b * batch_size, len(metadata)))
 
     rows_meta = rows_meta[0]
-    rows_audo = rows_audio[0]
+    rows_audio = rows_audio[0]
     rows_meta[['category', 'fold']] = rows_meta[['category', 'fold']].astype(int)
 
     # save to files
