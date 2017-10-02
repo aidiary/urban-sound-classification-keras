@@ -108,6 +108,8 @@ def main():
         save_best_only=True,
         mode='auto')
 
+    epochs = 300
+    batch_size = 1000
     tb = keras.callbacks.TensorBoard(log_dir='./logs/1')
 
     model.fit(dataset.X, dataset.y,
