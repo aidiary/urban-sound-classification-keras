@@ -2,6 +2,7 @@ import os
 import librosa
 import numpy as np
 import pandas as pd
+import keras
 from keras.optimizers import SGD
 
 from makedata import DATA_ROOT
@@ -94,11 +95,14 @@ def main():
     epochs = 100
     batch_size = 1000
 
+    tb = keras.callbacks.TensorBoard(log_dir='./logs/1')
+
     model.fit(dataset.X, dataset.y,
               batch_size=batch_size,
               epochs=epochs,
               verbose=1,
-              validation_data=(dataset.X_validation, dataset.y_validation))
+              validation_data=(dataset.X_validation, dataset.y_validation),
+              callbacks=[tb])
 
 
 if __name__ == '__main__':
