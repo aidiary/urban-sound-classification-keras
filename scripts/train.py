@@ -3,8 +3,8 @@ import librosa
 import numpy as np
 import pandas as pd
 import keras
-from keras.optimizers import SGD
-from keras.callbacks import CSVLogger, ModelCheckpoint
+from keras.optimizers import SGD, Adam
+from keras.callbacks import ModelCheckpoint, TensorBoard
 
 from makedata import DATA_ROOT
 from models import create_model
@@ -51,17 +51,11 @@ class Dataset:
         X = np.reshape(X, self.shape, order='F')
         X_validation = np.reshape(X_validation, self.shape, order='F')
         X_test = np.reshape(X_test, self.shape, order='F')
-#         print(X.shape)
-#         print(X_validation.shape)
-#         print(X_test.shape)
 
         # generate delta
         X = self.generate_deltas(X)
         X_validation = self.generate_deltas(X_validation)
         X_test = self.generate_deltas(X_test)
-#         print(X.shape)
-#         print(X_validation.shape)
-#         print(X_test.shape)
 
         self.X, self.y = X, y
         self.X_validation, self.y_validation = X_validation, y_validation
@@ -96,28 +90,26 @@ def main():
 
     model = create_model()
     model.compile(loss='categorical_crossentropy',
-                  optimizer=SGD(lr=0.002, momentum=0.9, nesterov=True),
+                  optimizer=Adam(), #SGD(lr=0.002, momentum=0.9, nesterov=True),
                   metrics=['accuracy'])
 
-    logger = CSVLogger(os.path.join(MODEL_DIR, 'train.log'))
-    weight_file = os.path.join(MODEL_DIR, 'model.{epoch:02d}-{val_loss:.3f}-{val_acc:.3f}.h5')
     checkpoint = ModelCheckpoint(
-        weight_file,
-        monitor='val_loss',
+        os.path.join(MODEL_DIR, 'model.{epoch:02d}-{val_loss:.3f}-{val_acc:.3f}.h5'),
+        monitor='val_acc',
         verbose=1,
         save_best_only=True,
         mode='auto')
+    tensorboard = keras.callbacks.TensorBoard(log_dir='./logs/1')
 
-    epochs = 300
-    batch_size = 1000
-    tb = keras.callbacks.TensorBoard(log_dir='./logs/1')
+    epochs = 100
+    batch_size = 128
 
     model.fit(dataset.X, dataset.y,
               batch_size=batch_size,
               epochs=epochs,
               verbose=1,
               validation_data=(dataset.X_validation, dataset.y_validation),
-              callbacks=[tb])
+              callbacks=[checkpoint, tensorboard])
 
 
 if __name__ == '__main__':
